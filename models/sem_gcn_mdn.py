@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 import torch
 import torch.nn as nn
-from models.sem_graph_conv import SemGraphConv, Attention
+from models.sem_graph_conv import SemGraphConv
 from models.graph_non_local import GraphNonLocal
 import torch.nn.functional as F
 
