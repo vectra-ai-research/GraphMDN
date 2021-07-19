@@ -46,13 +46,13 @@ class _GraphNonLocal(nn.Module):
     def __init__(self, hid_dim, grouped_order, restored_order, group_size):
         super(_GraphNonLocal, self).__init__()
 
-        self.nonlocal = GraphNonLocal(hid_dim, sub_sample=group_size)
+        self.non_local = GraphNonLocal(hid_dim, sub_sample=group_size)
         self.grouped_order = grouped_order
         self.restored_order = restored_order
 
     def forward(self, x):
         out = x[:, self.grouped_order, :]
-        out = self.nonlocal(out.transpose(1, 2)).transpose(1, 2)
+        out = self.non_local(out.transpose(1, 2)).transpose(1, 2)
         out = out[:, self.restored_order, :]
         return out
 
@@ -60,7 +60,6 @@ class _GraphNonLocal(nn.Module):
 class SemGCN(nn.Module):
     def __init__(self, adj, hid_dim, coords_dim=(2, 3), num_layers=4, nodes_group=None, p_dropout=None):
         super(SemGCN, self).__init__()
-
         _gconv_input = [_GraphConv(adj, coords_dim[0], hid_dim, p_dropout=p_dropout)]
         _gconv_layers = []
 
@@ -69,9 +68,12 @@ class SemGCN(nn.Module):
                 _gconv_layers.append(_ResGraphConv(adj, hid_dim, hid_dim, hid_dim, p_dropout=p_dropout))
         else:
             group_size = len(nodes_group[0])
-            assert group_size > 1
 
-            grouped_order = list(reduce(lambda x, y: x + y, nodes_group))
+            grouped_order = nodes_group[0]
+            for node in nodes_group[1:]:
+                grouped_order += node
+            grouped_order = list(grouped_order)
+
             restored_order = [0] * len(grouped_order)
             for i in range(len(restored_order)):
                 for j in range(len(grouped_order)):
