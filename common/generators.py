@@ -15,6 +15,7 @@ class PoseGenerator(Dataset):
         self._poses_2d = np.concatenate(poses_2d)
         self.subject = subj
         self._actions = reduce(lambda x, y: x + y, actions)
+        self._subject = reduce(lambda x, y: x + y, subj)
 
         assert self._poses_3d.shape[0] == self._poses_2d.shape[0] and self._poses_3d.shape[0] == len(self._actions)
         print('Generating {} poses...'.format(len(self._actions)))
@@ -23,11 +24,12 @@ class PoseGenerator(Dataset):
         out_pose_3d = self._poses_3d[index]
         out_pose_2d = self._poses_2d[index]
         out_action = self._actions[index]
+        out_subj = self._subject[index]
 
         out_pose_3d = torch.from_numpy(out_pose_3d).float()
         out_pose_2d = torch.from_numpy(out_pose_2d).float()
 
-        return out_pose_3d, out_pose_2d, out_action
+        return out_pose_3d, out_pose_2d, out_action, out_subj
 
     def __len__(self):
         return len(self._actions)
