@@ -1,6 +1,7 @@
-torch
-torchvision
-numpy
-scipy
-h5py
-matplotlib
+torch==1.9.0
+torchvision==0.10.0
+numpy==1.21.0
+scipy==1.7.0
+h5py==3.3.0
+matplotlib==3.4.2
+pillow>=8.1.0 # not directly required, pinned by Snyk to avoid a vulnerability

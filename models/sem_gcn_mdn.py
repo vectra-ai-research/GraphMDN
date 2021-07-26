@@ -1,9 +1,10 @@
 from __future__ import absolute_import
 
+import torch
 import torch.nn as nn
 from models.sem_graph_conv import SemGraphConv
 from models.graph_non_local import GraphNonLocal
-
+import torch.nn.functional as F
 
 class _GraphConv(nn.Module):
     def __init__(self, adj, input_dim, output_dim, p_dropout=None):
@@ -57,10 +58,14 @@ class _GraphNonLocal(nn.Module):
         return out
 
 
-class SemGCN(nn.Module):
-    def __init__(self, adj, hid_dim, coords_dim=(2, 3), num_layers=4, nodes_group=None, p_dropout=None):
-        super(SemGCN, self).__init__()
-        _gconv_input = [_GraphConv(adj, coords_dim[0], hid_dim, p_dropout=p_dropout)]
+class SemGCN_MDN_Graph(nn.Module):
+    def __init__(self, adj, hid_dim, num_gaussians=5, num_layers=4, nodes_group=None, p_dropout=None, tanh_out=True,
+                 multivariate=False, pose_level_pi=False, uniform_sigma=False):
+
+        super(SemGCN_MDN_Graph, self).__init__()
+
+        assert not (multivariate and uniform_sigma)
+        _gconv_input = [_GraphConv(adj, 2, hid_dim, p_dropout=p_dropout)]
         _gconv_layers = []
 
         if nodes_group is None:
@@ -88,10 +93,46 @@ class SemGCN(nn.Module):
 
         self.gconv_input = nn.Sequential(*_gconv_input)
         self.gconv_layers = nn.Sequential(*_gconv_layers)
-        self.gconv_output = SemGraphConv(hid_dim, coords_dim[1], adj)
+
+        if multivariate:
+            gauss_dim = 7
+        else:
+            gauss_dim = 5
+
+        self.gconv_output = SemGraphConv(hid_dim, gauss_dim * num_gaussians, adj)
+
+
+        self.num_gaussians = num_gaussians
+        self.tanh_out = tanh_out
+        self.multivariate = multivariate
+        self.pose_level_pi = pose_level_pi
+        self.uniform_sigma = uniform_sigma
 
     def forward(self, x):
         out = self.gconv_input(x)
         out = self.gconv_layers(out)
         out = self.gconv_output(out)
-        return out
+
+        n_gaussians = self.num_gaussians
+
+        ## TODO: make tanh a flag in arguments
+        mu = out[:, :, :n_gaussians*3].view(out.shape[0], out.shape[1], n_gaussians, 3)
+        if self.tanh_out:
+            mu = torch.tanh(mu)
+
+        if self.multivariate:
+            sigma = out[:, :, n_gaussians*3:n_gaussians*6].view(out.shape[0], out.shape[1], n_gaussians, 3)
+            pi = out[:, :, n_gaussians*6:n_gaussians*7]
+        else:
+            sigma = out[:, :, n_gaussians*3:n_gaussians*4].unsqueeze(dim=3)
+            pi = out[:, :, n_gaussians*4:n_gaussians*5]
+
+        if self.uniform_sigma:
+            sigma = torch.mean(sigma, dim=1, keepdim=True).expand(-1, out.shape[1], -1, -1)
+        if self.pose_level_pi:
+            pi = torch.mean(pi, dim=1, keepdim=True).expand(-1, out.shape[1], -1)
+            #constant pi
+            #pi = torch.mean(pi, dim=2, keepdim=True).expand(-1, -1, n_gaussians)
+        sigma = torch.max(F.elu(sigma) + torch.ones([1]), 1e-10 * torch.ones([1]))
+
+        return (mu, sigma, pi)

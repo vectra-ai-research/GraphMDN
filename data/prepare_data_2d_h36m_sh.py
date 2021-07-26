@@ -15,6 +15,23 @@ sys.path.append('../')
 
 from common.h36m_dataset import H36M_NAMES
 
+
+def safe_unzip(zip_file, extract_path='.'):
+    with zipfile.ZipFile(zip_file, 'r') as zf:
+        for member in zf.infolist():
+            file_path = os.path.realpath(os.path.join(extract_path, member.filename))
+            if file_path.startswith(os.path.realpath(extract_path)):
+                zf.extract(member, extract_path)
+
+
+def safe_untar(tar_file, extract_path='.'):
+    with tarfile.open(tar_file, 'r:gz') as tf:
+        for member in tf:
+            file_path = os.path.realpath(os.path.join(extract_path, member.name))
+            if file_path.startswith(os.path.realpath(extract_path)):
+                tf.extract(member, extract_path)
+
+
 output_filename_pt = 'data_2d_h36m_sh_pt_mpii'
 output_filename_ft = 'data_2d_h36m_sh_ft_h36m'
 subjects = ['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11']
@@ -76,7 +93,7 @@ def process_subject(subject, file_list, output):
             output[subject][action] = [None, None, None, None]
 
         with h5py.File(f) as hf:
-            positions = hf['poses'].value
+            positions = hf['poses'][:]
             positions = positions[:, SH_TO_GT_PERM, :]
             output[subject][action][cam_map[cam]] = positions.astype('float32')
 
@@ -96,8 +113,7 @@ if __name__ == '__main__':
     if args.pretrained:
         print('Converting pretrained dataset from', args.pretrained)
         print('Extracting...')
-        with zipfile.ZipFile(args.pretrained, 'r') as archive:
-            archive.extractall('sh_pt')
+        safe_unzip(args.pretrained, extract_path='sh_pt')
 
         print('Converting...')
         output = {}
@@ -117,8 +133,7 @@ if __name__ == '__main__':
     if args.fine_tuned:
         print('Converting fine-tuned dataset from', args.fine_tuned)
         print('Extracting...')
-        with tarfile.open(args.fine_tuned, 'r:gz') as archive:
-            archive.extractall('sh_ft')
+        safe_untar(args.fine_tuned, 'sh_ft')
 
         print('Converting...')
         output = {}
