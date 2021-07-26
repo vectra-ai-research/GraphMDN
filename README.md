@@ -11,6 +11,8 @@ You can find the instructions for setting up the Human3.6M and results of 2D det
 
 ### Evaluating our pretrained model
 
+First, download the checkpoint archive from our "Release" page, named `graphmdn_ijcnn_release_checkpoint.zip`. Extract this archive into the root folder of the GraphMDN repository; if done correctly, `GraphMDN/checkpoint` should exist as a directory. From here, the pretrained model can be evaluated.
+
 To evaluate, run:
 ```
 python main_eval.py --evaluate checkpoint/trained_model/ckpt_best.pth.tar
